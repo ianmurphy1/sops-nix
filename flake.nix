@@ -33,7 +33,7 @@
     homeManagerModules.sops = ./modules/home-manager/sops.nix;
     homeManagerModule = self.homeManagerModules.sops;
     darwinModules = {
-      sops = import ./modules/nix-darwin;
+      sops = ./modules/nix-darwin;
       default = self.darwinModules.sops;
     };
     packages = forAllSystems (system:
