@@ -2,7 +2,6 @@
 
 let
   cfg = config.sops;
-  users = config.users.users;
   sops-install-secrets = cfg.package;
   manifestFor = pkgs.callPackage ./manifest-for.nix {
     inherit cfg;
@@ -110,24 +109,6 @@ let
         readOnly = true;
         description = ''
           Hash of the sops file, useful in <xref linkend="opt-systemd.services._name_.restartTriggers" />.
-        '';
-      };
-      restartUnits = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        example = [ "sshd.service" ];
-        description = ''
-          Names of units that should be restarted when this secret changes.
-          This works the same way as <xref linkend="opt-systemd.services._name_.restartTriggers" />.
-        '';
-      };
-      reloadUnits = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        example = [ "sshd.service" ];
-        description = ''
-          Names of units that should be reloaded when this secret changes.
-          This works the same way as <xref linkend="opt-systemd.services._name_.reloadTriggers" />.
         '';
       };
       neededForUsers = lib.mkOption {
