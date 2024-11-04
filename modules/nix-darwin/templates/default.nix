@@ -6,6 +6,25 @@ let
   cfg = config.sops;
   secretsForUsers = lib.filterAttrs (_: v: v.neededForUsers) cfg.secrets;
   users = config.users.users;
+  renderScript = ''
+    echo Setting up sops templates...
+    ${concatMapStringsSep "\n" (name:
+      let
+        tpl = config.sops.templates.${name};
+        substitute = pkgs.writers.writePython3 "substitute" { }
+          (readFile ./subs.py);
+        subst-pairs = pkgs.writeText "pairs" (concatMapStringsSep "\n"
+          (name:
+            "${toString config.sops.placeholder.${name}} ${
+              config.sops.secrets.${name}.path
+            }") (attrNames config.sops.secrets));
+      in ''
+        mkdir -p "${dirOf tpl.path}"
+        (umask 077; ${substitute} ${tpl.file} ${subst-pairs} > ${tpl.path})
+        chmod "${tpl.mode}" "${tpl.path}"
+        chown "${tpl.owner}:${tpl.group}" "${tpl.path}"
+      '') (attrNames config.sops.templates)}
+  '';
 in {
   options.sops = {
     templates = mkOption {
@@ -47,8 +66,8 @@ in {
           };
           group = mkOption {
             type = singleLineStr;
-            default = users.${config.owner}.group;
-            defaultText = ''config.users.users.''${cfg.owner}.group'';
+            default = "staff";
+            defaultText = lib.literalExpression ''config.users.users.''${cfg.owner}.group'';
             description = ''
               Group of the file.
             '';
@@ -56,8 +75,11 @@ in {
           file = mkOption {
             type = types.path;
             default = pkgs.writeText config.name config.content;
-            visible = false;
-            readOnly = true;
+            defaultText = lib.literalExpression ''pkgs.writeText config.name config.content'';
+            example = "./configuration-template.conf";
+            description = ''
+              File used as the template. When this value is specified, `sops.templates.<name>.content` is ignored.
+            '';
           };
         };
       }));
@@ -81,26 +103,13 @@ in {
         (name: _: mkDefault "<SOPS:${hashString "sha256" name}:PLACEHOLDER>")
         config.sops.secrets;
 
-      system.activationScripts.renderSecrets = mkIf (cfg.templates != { })
-        (stringAfter ([ "setupSecrets" ]
-          ++ optional (secretsForUsers != { }) "setupSecretsForUsers") ''
-            echo Setting up sops templates...
-            ${concatMapStringsSep "\n" (name:
-              let
-                tpl = config.sops.templates.${name};
-                substitute = pkgs.writers.writePython3 "substitute" { }
-                  (readFile ./subs.py);
-                subst-pairs = pkgs.writeText "pairs" (concatMapStringsSep "\n"
-                  (name:
-                    "${toString config.sops.placeholder.${name}} ${
-                      config.sops.secrets.${name}.path
-                    }") (attrNames config.sops.secrets));
-              in ''
-                mkdir -p "${dirOf tpl.path}"
-                (umask 077; ${substitute} ${tpl.file} ${subst-pairs} > ${tpl.path})
-                chmod "${tpl.mode}" "${tpl.path}"
-                chown "${tpl.owner}:${tpl.group}" "${tpl.path}"
-              '') (attrNames config.sops.templates)}
-          '');
+      launchd.daemons.sops-nix-templates = {
+        script = renderScript;
+        serviceConfig = {
+          KeepAlive = false;
+          RunAtLoad = true;
+        };
+      };
+
     });
 }
