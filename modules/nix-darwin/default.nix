@@ -338,30 +338,37 @@ in {
       sops.environment.SOPS_GPG_EXEC = lib.mkIf (cfg.gnupg.home != null || cfg.gnupg.sshKeyPaths != []) (lib.mkDefault "${pkgs.gnupg}/bin/gpg");
 
       system.build.sops-nix-manifest = manifest;
+      system.activationScripts = {
+        postActivation.text = ''
+          echo "setting up secrets..."
+          ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
+        '';
+      };
 
       # launchd.daemons.<name> bootstraps and creates
       # an entry /Library/LaunchDaemons/org.nixos.<name>.plist
       # on activation unload and load the daemon to run
       # runs when it's loaded due to the daemon having:
       #   serviceConfig.RunAtLoad = true;
-      system.activationScripts = {
-        postActivation.text = ''
-          echo "setting up secrets"
-          launchctl unload /Library/LaunchDaemons/org.nixos.sops-nix.plist
-          launchctl load /Library/LaunchDaemons/org.nixos.sops-nix.plist
-        '';
-      };
+      #system.activationScripts = {
+      #  postActivation.text = ''
+      #    echo "setting up secrets..."
+      #    launchctl unload /Library/LaunchDaemons/org.nixos.sops-nix.plist
+      #    launchctl load /Library/LaunchDaemons/org.nixos.sops-nix.plist
+      #  '';
+      #};
 
-      launchd.daemons.sops-nix = {
-        script = ''
-          ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
-        '';
-        serviceConfig = {
-          KeepAlive = false;
-          RunAtLoad = true;
-          EnvironmentVariables = cfg.environment;
-        };
-      };
+      #launchd.daemons.sops-nix = {
+      #  script = ''
+      #    echo "Inside the daemon"
+      #    ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
+      #  '';
+      #  serviceConfig = {
+      #    KeepAlive = false;
+      #    RunAtLoad = true;
+      #    EnvironmentVariables = cfg.environment;
+      #  };
+      #};
     }
   ];
 }
