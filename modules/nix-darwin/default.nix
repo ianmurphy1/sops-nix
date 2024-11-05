@@ -141,7 +141,7 @@ let
   defaultImportKeys = algo:
     map (e: e.path) (lib.filter (e: e.type == algo && !(lib.hasPrefix "/run/secrets" e.path)) darwinSSHKeys);
 
-  escapedAgeKeyFile = lib.escapeShellArg cfg.age.keyFile;
+  escapedKeyFile = lib.escapeShellArg cfg.age.keyFile;
 
 in {
   options.sops = {
@@ -342,7 +342,14 @@ in {
         postActivation.text = ''
           echo "setting up secrets..."
           ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
-        '';
+        '' + lib.mkIf cfg.age.generateKey (''
+          if [[ ! -f ${escapedKeyFile} ]]; then
+            echo generating machine-specific age key...
+            mkdir -p $(dirname ${escapedKeyFile})
+            # age-keygen sets 0600 by default, no need to chmod.
+            ${pkgs.age}/bin/age-keygen -o ${escapedKeyFile}
+          fi
+        '');
       };
 
       # launchd.daemons.<name> bootstraps and creates
