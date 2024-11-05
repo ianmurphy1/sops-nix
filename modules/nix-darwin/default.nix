@@ -141,6 +141,8 @@ let
   defaultImportKeys = algo:
     map (e: e.path) (lib.filter (e: e.type == algo && !(lib.hasPrefix "/run/secrets" e.path)) darwinSSHKeys);
 
+  escapedAgeKeyFile = lib.escapeShellArg cfg.age.keyFile;
+
 in {
   options.sops = {
     secrets = lib.mkOption {
@@ -330,10 +332,11 @@ in {
         }]) cfg.secrets)
       );
 
-      sops.environment.SOPS_GPG_EXEC = lib.mkIf (cfg.gnupg.home != null || cfg.gnupg.sshKeyPaths != []) (lib.mkDefault "${pkgs.gnupg}/bin/gpg");
     })
 
     {
+      sops.environment.SOPS_GPG_EXEC = lib.mkIf (cfg.gnupg.home != null || cfg.gnupg.sshKeyPaths != []) (lib.mkDefault "${pkgs.gnupg}/bin/gpg");
+
       system.build.sops-nix-manifest = manifest;
 
       system.activationScripts = {
@@ -344,13 +347,21 @@ in {
       };
 
       launchd.daemons.sops-nix = {
-        script = ''
+        script = (lib.optionalString cfg.age.generateKey ''
+          if [[ ! -f ${escapedAgeKeyFile} ]]; then
+            echo generating machine-specific age key...
+            ${pkgs.coreutils}/bin/mkdir -p $(${pkgs.coreutils}/bin/dirname ${escapedAgeKeyFile})
+            # age-keygen sets 0600 by default, no need to chmod.
+            ${pkgs.age}/bin/age-keygen -o ${escapedAgeKeyFile}
+          fi
+        '') + ''
           [ -e /run/current-system ] || echo setting up secrets...
           ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
         '';
         serviceConfig = {
           KeepAlive = false;
           RunAtLoad = true;
+          EnvironmentVariables = cfg.environment;
         };
       };
     }

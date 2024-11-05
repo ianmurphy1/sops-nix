@@ -110,6 +110,12 @@ in {
           RunAtLoad = true;
         };
       };
+      system.activationScripts = {
+        sops-nix-templates.text = ''
+          launchctl unload /Library/LaunchDaemons/org.nixos.sops-nix-templates.plist
+          launchctl load /Library/LaunchDaemons/org.nixos.sops-nix-templates.plist
+        '';
+      };
 
     });
 }
