@@ -340,7 +340,7 @@ in {
       system.build.sops-nix-manifest = manifest;
       system.activationScripts = {
         postActivation.text = lib.mkAfter ''
-          ${if lib.optionalString cfg.age.generateKey then ''
+          ${if cfg.age.generateKey then ''
           if [[ ! -f ${escapedKeyFile} ]]; then
             echo generating machine-specific age key...
             mkdir -p $(dirname ${escapedKeyFile})
