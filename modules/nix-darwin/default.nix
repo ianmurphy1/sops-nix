@@ -141,8 +141,6 @@ let
   defaultImportKeys = algo:
     map (e: e.path) (lib.filter (e: e.type == algo && !(lib.hasPrefix "/run/secrets" e.path)) darwinSSHKeys);
 
-  escapedKeyFile = lib.escapeShellArg cfg.age.keyFile;
-
 in {
   options.sops = {
     secrets = lib.mkOption {
@@ -341,11 +339,11 @@ in {
       system.activationScripts = {
         postActivation.text = lib.mkAfter ''
           ${if cfg.age.generateKey then ''
-          if [[ ! -f ${escapedKeyFile} ]]; then
+          if [[ ! -f ${cfg.age.keyFile} ]]; then
             echo generating machine-specific age key...
-            mkdir -p $(dirname ${escapedKeyFile})
+            mkdir -p $(dirname ${cfg.age.keyFile})
             # age-keygen sets 0600 by default, no need to chmod.
-            ${pkgs.age}/bin/age-keygen -o ${escapedKeyFile}
+            ${pkgs.age}/bin/age-keygen -o ${cfg.age.keyFile}
           fi
           '' else ""}
           echo "setting up secrets..."
