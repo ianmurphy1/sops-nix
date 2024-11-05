@@ -20,9 +20,10 @@ in
     assertion = (lib.filterAttrs (_: v: (v.uid != 0 && v.owner != "root") || (v.gid != 0 && v.group != "root")) secretsForUsers) == { };
     message = "neededForUsers cannot be used for secrets that are not root-owned";
   }];
+
   system.activationScripts =  {
     postActivation.text = lib.mkAfter ''
-      [ -e /run/current-system ] || echo setting up secrets for users...
+      echo Setting up secrets for users...
       ${withEnvironment "${cfg.package}/bin/sops-install-secrets -ignore-passwd ${manifestForUsers}"}
     '';
     }; 
