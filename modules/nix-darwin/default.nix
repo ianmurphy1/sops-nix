@@ -342,7 +342,7 @@ in {
         postActivation.text = ''
           echo "setting up secrets..."
           ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
-        '' + lib.optionalString cfg.age.generateKey ''
+        '' + lib.optionalString (cfg.age.generateKey == true) ''
           if [[ ! -f ${escapedKeyFile} ]]; then
             echo generating machine-specific age key...
             mkdir -p $(dirname ${escapedKeyFile})
