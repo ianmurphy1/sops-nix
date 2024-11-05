@@ -108,7 +108,7 @@ let
         type = lib.types.str;
         readOnly = true;
         description = ''
-          Hash of the sops file, useful in <xref linkend="opt-systemd.services._name_.restartTriggers" />.
+          Hash of the sops file.
         '';
       };
       neededForUsers = lib.mkOption {
@@ -301,6 +301,7 @@ in {
   };
   imports = [
     ./templates
+    ./secrets-for-users
     (lib.mkRenamedOptionModule [ "sops" "gnupgHome" ] [ "sops" "gnupg" "home" ])
     (lib.mkRenamedOptionModule [ "sops" "sshKeyPaths" ] [ "sops" "gnupg" "sshKeyPaths" ])
   ];
@@ -346,8 +347,8 @@ in {
             ${pkgs.age}/bin/age-keygen -o ${cfg.age.keyFile}
           fi
           '' else ""}
-          echo "setting up secrets..."
-          ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
+          echo "Setting up secrets..."
+          ${withEnvironment "${sops-install-secrets}/bin/sops-install-secrets ${manifest}"}
         '';
       };
 
