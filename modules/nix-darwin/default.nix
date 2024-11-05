@@ -339,23 +339,21 @@ in {
 
       system.build.sops-nix-manifest = manifest;
 
+      # launchd.daemons.<name> bootstraps and creates
+      # an entry /Library/LaunchDaemons/org.nixos.<name>.plist
+      # on activation unload and load the daemon to run
+      # runs when it's loaded due to the daemon having:
+      #   serviceConfig.RunAtLoad = true;
       system.activationScripts = {
-        sops-nix.text = ''
+        postActivation.text = ''
+          echo "setting up secrets"
           launchctl unload /Library/LaunchDaemons/org.nixos.sops-nix.plist
           launchctl load /Library/LaunchDaemons/org.nixos.sops-nix.plist
         '';
       };
 
       launchd.daemons.sops-nix = {
-        script = (lib.optionalString cfg.age.generateKey ''
-          if [[ ! -f ${escapedAgeKeyFile} ]]; then
-            echo generating machine-specific age key...
-            ${pkgs.coreutils}/bin/mkdir -p $(${pkgs.coreutils}/bin/dirname ${escapedAgeKeyFile})
-            # age-keygen sets 0600 by default, no need to chmod.
-            ${pkgs.age}/bin/age-keygen -o ${escapedAgeKeyFile}
-          fi
-        '') + ''
-          [ -e /run/current-system ] || echo setting up secrets...
+        script = ''
           ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
         '';
         serviceConfig = {
