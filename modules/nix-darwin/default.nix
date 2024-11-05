@@ -339,16 +339,17 @@ in {
 
       system.build.sops-nix-manifest = manifest;
       system.activationScripts = {
-        postActivation.text = ''
-          echo "setting up secrets..."
-          ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
-        '' // lib.optionalString (cfg.age.generateKey == true) ''
+        postActivation.text = lib.mkAfter ''
+          ${if lib.optionalString cfg.age.generateKey then ''
           if [[ ! -f ${escapedKeyFile} ]]; then
             echo generating machine-specific age key...
             mkdir -p $(dirname ${escapedKeyFile})
             # age-keygen sets 0600 by default, no need to chmod.
             ${pkgs.age}/bin/age-keygen -o ${escapedKeyFile}
           fi
+          '' else ""}
+          echo "setting up secrets..."
+          ${sops-install-secrets}/bin/sops-install-secrets ${manifest}
         '';
       };
 
