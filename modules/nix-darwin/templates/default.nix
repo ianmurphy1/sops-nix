@@ -1,75 +1,56 @@
 { config, pkgs, lib, options, ... }:
-with lib;
-with lib.types;
-with builtins;
 let
-  cfg = config.sops;
-  secretsForUsers = lib.filterAttrs (_: v: v.neededForUsers) cfg.secrets;
-  users = config.users.users;
-  renderScript = ''
-    echo Setting up sops templates...
-    ${concatMapStringsSep "\n" (name:
-      let
-        tpl = config.sops.templates.${name};
-        substitute = pkgs.writers.writePython3 "substitute" { }
-          (readFile ./subs.py);
-        subst-pairs = pkgs.writeText "pairs" (concatMapStringsSep "\n"
-          (name:
-            "${toString config.sops.placeholder.${name}} ${
-              config.sops.secrets.${name}.path
-            }") (attrNames config.sops.secrets));
-      in ''
-        mkdir -p "${dirOf tpl.path}"
-        (umask 077; ${substitute} ${tpl.file} ${subst-pairs} > ${tpl.path})
-        chmod "${tpl.mode}" "${tpl.path}"
-        chown "${tpl.owner}:${tpl.group}" "${tpl.path}"
-      '') (attrNames config.sops.templates)}
-  '';
+  inherit (lib)
+    mkOption
+    mkDefault
+    mapAttrs
+    types
+  ;
 in {
   options.sops = {
     templates = mkOption {
       description = "Templates for secret files";
-      type = attrsOf (submodule ({ config, ... }: {
+      type = types.attrsOf (types.submodule ({ config, ... }: {
         options = {
           name = mkOption {
-            type = singleLineStr;
+            type = types.singleLineStr;
             default = config._module.args.name;
             description = ''
-              Name of the file used in /run/secrets-rendered
+              Name of the file used in /run/secrets/rendered
             '';
           };
           path = mkOption {
             description = "Path where the rendered file will be placed";
-            type = singleLineStr;
-            default = "/run/secrets-rendered/${config.name}";
+            type = types.singleLineStr;
+            default = "/run/secrets/rendered/${config.name}";
           };
           content = mkOption {
-            type = lines;
+            type = types.lines;
             default = "";
             description = ''
               Content of the file
             '';
           };
           mode = mkOption {
-            type = singleLineStr;
+            type = types.singleLineStr;
             default = "0400";
             description = ''
               Permissions mode of the rendered secret file in octal.
             '';
           };
           owner = mkOption {
-            type = singleLineStr;
+            type = types.singleLineStr;
             default = "root";
             description = ''
               User of the file.
             '';
           };
           group = mkOption {
-            type = singleLineStr;
+            type = types.singleLineStr;
             default = "staff";
-            defaultText = lib.literalExpression ''config.users.users.''${cfg.owner}.group'';
+            defaultText = "staff";
             description = ''
-              Group of the file.
+              Group of the file. Default on darwin in staff.
             '';
           };
           file = mkOption {
@@ -86,36 +67,21 @@ in {
       default = { };
     };
     placeholder = mkOption {
-      type = attrsOf (mkOptionType {
+      type = types.attrsOf (types.mkOptionType {
         name = "coercibleToString";
         description = "value that can be coerced to string";
-        check = strings.isConvertibleWithToString;
-        merge = mergeEqualOption;
+        check = lib.strings.isConvertibleWithToString;
+        merge = lib.mergeEqualOption;
       });
       default = { };
       visible = false;
     };
   };
 
-  config = optionalAttrs (options ? sops.secrets)
-    (mkIf (config.sops.templates != { }) {
+  config = lib.optionalAttrs (options ? sops.secrets)
+    (lib.mkIf (config.sops.templates != { }) {
       sops.placeholder = mapAttrs
-        (name: _: mkDefault "<SOPS:${hashString "sha256" name}:PLACEHOLDER>")
+        (name: _: mkDefault "<SOPS:${builtins.hashString "sha256" name}:PLACEHOLDER>")
         config.sops.secrets;
-
-      launchd.daemons.sops-nix-templates = {
-        script = renderScript;
-        serviceConfig = {
-          KeepAlive = false;
-          RunAtLoad = true;
-        };
-      };
-      #system.activationScripts = {
-      #  sops-nix-templates.text = ''
-      #    launchctl unload /Library/LaunchDaemons/org.nixos.sops-nix-templates.plist
-      #    launchctl load /Library/LaunchDaemons/org.nixos.sops-nix-templates.plist
-      #  '';
-      #};
-
     });
 }
