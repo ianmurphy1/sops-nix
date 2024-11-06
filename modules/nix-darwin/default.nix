@@ -137,6 +137,7 @@ let
     path = "/etc/ssh/ssh_host_ed25519_key";
   }];
 
+  escapedKeyFile = lib.escapeShellArg cfg.age.keyFile;
   # Skip ssh keys deployed with sops to avoid a catch 22
   defaultImportKeys = algo:
     map (e: e.path) (lib.filter (e: e.type == algo && !(lib.hasPrefix "/run/secrets" e.path)) darwinSSHKeys);
@@ -339,11 +340,11 @@ in {
       system.activationScripts = {
         postActivation.text = lib.mkAfter ''
           ${if cfg.age.generateKey then ''
-          if [[ ! -f ${cfg.age.keyFile} ]]; then
+          if [[ ! -f ${escapedKeyFile} ]]; then
             echo generating machine-specific age key...
-            mkdir -p $(dirname ${cfg.age.keyFile})
+            mkdir -p $(dirname ${escapedKeyFile})
             # age-keygen sets 0600 by default, no need to chmod.
-            ${pkgs.age}/bin/age-keygen -o ${cfg.age.keyFile}
+            ${pkgs.age}/bin/age-keygen -o ${escapedKeyFile}
           fi
           '' else ""}
           echo "Setting up secrets..."
