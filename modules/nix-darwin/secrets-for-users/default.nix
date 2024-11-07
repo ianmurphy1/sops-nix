@@ -26,7 +26,17 @@ in
       echo Setting up secrets for users...
       ${withEnvironment "${cfg.package}/bin/sops-install-secrets -ignore-passwd ${manifestForUsers}"}
     '';
-    }; 
+  };
+
+  launchd.daemons.sops-install-secrets-for-users = {
+    command = ''
+      ${withEnvironment "${cfg.package}/bin/sops-install-secrets -ignore-passwd ${manifestForUsers}"}
+    '';
+    serviceConfig = {
+      RunAtLoad = true;
+      KeepAlive = false;
+    };
+  };
 
   system.build.sops-nix-users-manifest = manifestForUsers;
 }
